@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Hello WebSocket</title>
+<link rel="stylesheet" type="text/css" href="style.css">
+<script src="sockjs-0.3.4.js"></script>
+<script src="stomp.js"></script>
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.4/jquery.min.js"></script>
+<script type="text/javascript">
+        var stompClient = null;
+
+        function setConnected(connected) {
+            document.getElementById('connect').disabled = connected;
+            document.getElementById('disconnect').disabled = !connected;
+        }
+
+        function connect() {
+            var socket = new SockJS('/hardwareCategories');
+            stompClient = Stomp.over(socket);
+            stompClient.connect({}, function(frame) {
+            	var isDataInitialized = false;
+                setConnected(true);
+                console.log('Connected: ' + frame);
+                stompClient.subscribe('/topic', function(category){
+                	if (isDataInitialized) {
+                    	updateDataTable(JSON.parse(category.body));
+                	} else {
+                		initializeDataTable(JSON.parse(category.body));
+                		isDataInitialized = true;
+                	}
+                });
+            });
+        }
+
+        function disconnect() {
+            if (stompClient != null) {
+                stompClient.disconnect();
+            }
+            setConnected(false);
+            console.log("Disconnected");
+        }
+
+        function updateDataTable(message) {
+    	    console.log('Updating Categories counts with: ' + JSON.stringify(message));
+    	        	    
+    	    $("[id^='categoryTable-']").removeClass();
+        	$(message).each(function(index,element){
+        	    var itemCountElem = $('#categoryTable-' + element['name']);
+				var oldItemCount = parseInt(itemCountElem.text(), 10);
+				var newItemCount = parseInt(element['itemCount'], 10);
+				
+				if (oldItemCount < newItemCount) {
+					itemCountElem.addClass('green');
+				} else if (oldItemCount > newItemCount) {
+					itemCountElem.addClass('red');
+				} 
+        	    
+				itemCountElem.text(newItemCount);
+        	});        	
+        }
+        
+        function initializeDataTable(message) {
+    	    console.log('Initialize Categories on subscribe with: ' + JSON.stringify(message));
+        	var categoryTable = '<table id="categoryTable"><tr><td>Hardware Category</td><td>Item Count</td></tr>';
+        	$(message).each(function(index,element){
+        	    categoryTable += '<tr><td>' + element['name'] + '</td><td id="categoryTable-' + element['name'] + '">'+ element['itemCount'] + '</td></tr>';
+        	});
+        	$('#categoryTableContainer').empty();        	
+        	$('#categoryTableContainer').append(categoryTable + '</table>');
+        }        
+    </script>
+</head>
+<body onload="disconnect()">
+	<noscript>
+		<h2 style="color: #ff0000">Seems your browser doesn't support
+			Javascript! Websocket relies on Javascript being enabled. Please
+			enable Javascript and reload this page!</h2>
+	</noscript>
+	<div>
+		<div>
+			<button id="connect" onclick="connect();">Connect</button>
+			<button id="disconnect" disabled="disabled" onclick="disconnect();">Disconnect</button>
+		</div>
+		<div class="categoryTableStyle" id="categoryTableContainer">			
+		</div>
+	</div>
+</body>
+</html>
